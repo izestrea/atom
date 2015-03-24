@@ -3,6 +3,7 @@
 Path = require 'path'
 {defaults} = require 'underscore-plus'
 TextBuffer = require 'text-buffer'
+{TextDocument} = require "text-document"
 TextEditor = require './text-editor'
 TextEditorComponent = require './text-editor-component'
 TextEditorView = null
@@ -94,7 +95,7 @@ class TextEditorElement extends HTMLElement
 
   buildModel: ->
     @setModel(new TextEditor(
-      buffer: new TextBuffer(@textContent)
+      buffer: new TextDocument(@textContent)
       softWrapped: false
       tabLength: 2
       softTabs: true

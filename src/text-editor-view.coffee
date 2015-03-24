@@ -1,5 +1,6 @@
 {View, $} = require 'space-pen'
 {defaults} = require 'underscore-plus'
+{TextDocument} = require "text-document"
 TextBuffer = require 'text-buffer'
 TextEditor = require './text-editor'
 TextEditorElement = require './text-editor-element'
@@ -52,7 +53,7 @@ class TextEditorView extends View
       else
         {editor, mini, placeholderText, attributes} = modelOrParams
         model = editor ? new TextEditor
-          buffer: new TextBuffer
+          buffer: new TextDocument
           softWrapped: false
           tabLength: 2
           softTabs: true
