@@ -337,9 +337,10 @@ class LinesComponent
         @measureCharactersInLine(id, lineState, lineNode) if lineNode?
       return
 
-    @canvas ?= @iframe.contentDocument.createElement("canvas")
-    @context ?= @canvas.getContext("2d")
-    @context.font = "16px Monaco"
+    @defaultCanvas ?= @iframe.contentDocument.createElement("canvas")
+    @defaultContext ?= @defaultCanvas.getContext("2d")
+    @defaultContext.font = "16px Monaco"
+
     if batch
       @presenter.batchCharacterMeasurement(fn)
     else
@@ -350,7 +351,7 @@ class LinesComponent
     total = 0
     for {value, scopes, hasPairedCharacter} in tokenizedLine.tokens
       text = ""
-      context = @canvasContextsByScopes[scopes] ? @context
+      context = @canvasContextsByScopes[scopes] ? @defaultContext
       valueIndex = 0
       left = total
       while valueIndex < value.length
