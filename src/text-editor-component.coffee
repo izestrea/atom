@@ -189,6 +189,8 @@ class TextEditorComponent
       atom.views.updateDocument =>
         @updateRequested = false
         @updateSync() if @editor.isAlive()
+      atom.views.readDocument =>
+        @linesComponent.updateFontBook() unless @newState.content.scrollingVertically
 
   canUpdate: ->
     @mounted and @editor.isAlive()

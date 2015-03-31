@@ -24,6 +24,8 @@ class LinesComponent
     @screenRowsByLineId = {}
     @lineIdsByScreenRow = {}
     @renderedDecorationsByLineId = {}
+    @canvasContextsByScopes = {}
+    @measuredLines = new Set
 
     @domNode = document.createElement('div')
     @domNode.classList.add('lines')
@@ -33,6 +35,8 @@ class LinesComponent
 
     @highlightsComponent = new HighlightsComponent(@presenter)
     @domNode.appendChild(@highlightsComponent.domNode)
+    @iframe = document.createElement("iframe")
+    @domNode.appendChild(@iframe)
 
     if @useShadowDOM
       insertionPoint = document.createElement('content')
@@ -53,8 +57,7 @@ class LinesComponent
     @removeLineNodes() unless @oldState.indentGuidesVisible is @newState.indentGuidesVisible
     @updateLineNodes()
 
-    if shouldMeasure
-      @measureCharactersInLines(@newState.changedLines, false)
+    @measureCharactersInLines(@newState.changedLines, false) if shouldMeasure
 
   postMeasureUpdateSync: (state) ->
     @newState = state.content
@@ -280,23 +283,19 @@ class LinesComponent
 
     @measureCharactersInLines(@newState.lines)
 
-  measureCharactersInLines: (lines, batch = true) ->
-    fn = =>
-      for id, lineState of lines
-        lineNode = @lineNodesByLineId[id]
-        @measureCharactersInLine(id, lineState, lineNode) if lineNode?
-      return
+  updateFontBook: ->
+    reducer = (acc, scope) -> acc + ".#{scope}"
 
-    if batch
-      @presenter.batchCharacterMeasurement(fn)
-    else
-      fn()
+    for id, lineState of @newState.lines
+      continue if @measuredLines.has(id)
+      lineNode = @lineNodesByLineId[id]
+      @readFontInformationFromLine(id, lineState, lineNode)
+      @measuredLines.add(id)
+    return
 
-  measureCharactersInLine: (lineId, tokenizedLine, lineNode) ->
-    rangeForMeasurement = null
+  readFontInformationFromLine: (id, tokenizedLine, lineNode) ->
     iterator = null
     charIndex = 0
-    charWidths = []
 
     for {value, scopes, hasPairedCharacter} in tokenizedLine.tokens
       valueIndex = 0
@@ -313,7 +312,6 @@ class LinesComponent
         continue if char is '\0'
 
         unless textNode?
-          rangeForMeasurement ?= document.createRange()
           iterator =  document.createNodeIterator(lineNode, NodeFilter.SHOW_TEXT, AcceptFilter)
           textNode = iterator.nextNode()
           textNodeIndex = 0
@@ -324,12 +322,45 @@ class LinesComponent
           textNodeIndex = nextTextNodeIndex
           nextTextNodeIndex = textNodeIndex + textNode.textContent.length
 
-        i = charIndex - textNodeIndex
-        rangeForMeasurement.setStart(textNode, i)
-        rangeForMeasurement.setEnd(textNode, i + charLength)
-        charWidth = rangeForMeasurement.getBoundingClientRect().width
+        canvas = @iframe.contentDocument.createElement("canvas")
+        context = canvas.getContext("2d")
+        context.font = getComputedStyle(textNode.parentElement).font
+        @canvasContextsByScopes[scopes] = context
+
+  measureCharactersInLines: (lines, batch = true) ->
+    fn = =>
+      for id, lineState of lines
+        lineNode = @lineNodesByLineId[id]
+        @measureCharactersInLine(id, lineState, lineNode) if lineNode?
+      return
+
+    @canvas ?= @iframe.contentDocument.createElement("canvas")
+    @context ?= @canvas.getContext("2d")
+    @context.font = "16px Monaco"
+    if batch
+      @presenter.batchCharacterMeasurement(fn)
+    else
+      fn()
+
+  measureCharactersInLine: (lineId, tokenizedLine, lineNode) ->
+    charWidths = []
+    for {value, scopes, hasPairedCharacter} in tokenizedLine.tokens
+      context = @canvasContextsByScopes[scopes] ? @context
+      valueIndex = 0
+      while valueIndex < value.length
+        if hasPairedCharacter
+          char = value.substr(valueIndex, 2)
+          charLength = 2
+          valueIndex += 2
+        else
+          char = value[valueIndex]
+          charLength = 1
+          valueIndex++
+
+        continue if char is '\0'
+
+        charWidth = context.measureText(char).width
         charWidths.push(charWidth)
-        charIndex += charLength
 
     if charWidths.length isnt 0
       @presenter.setCharWidthsForRow(tokenizedLine.screenRow, charWidths)
