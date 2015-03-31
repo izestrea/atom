@@ -37,6 +37,7 @@ class LinesComponent
     @domNode.appendChild(@highlightsComponent.domNode)
     @iframe = document.createElement("iframe")
     @domNode.appendChild(@iframe)
+    @iframe.style.display = "none"
 
     if @useShadowDOM
       insertionPoint = document.createElement('content')
@@ -281,11 +282,12 @@ class LinesComponent
   remeasureCharacterWidths: ->
     return unless @presenter.baseCharacterWidth
 
+    @canvasContextsByScopes = {}
+    @measuredLines.clear()
+    @updateFontBook()
     @measureCharactersInLines(@newState.lines)
 
   updateFontBook: ->
-    reducer = (acc, scope) -> acc + ".#{scope}"
-
     for id, lineState of @newState.lines
       continue if @measuredLines.has(id)
       lineNode = @lineNodesByLineId[id]
@@ -294,10 +296,11 @@ class LinesComponent
     return
 
   readFontInformationFromLine: (id, tokenizedLine, lineNode) ->
-    iterator = null
     charIndex = 0
 
     for {value, scopes, hasPairedCharacter} in tokenizedLine.tokens
+      continue if @canvasContextsByScopes[scopes]?
+
       valueIndex = 0
       while valueIndex < value.length
         if hasPairedCharacter
@@ -343,10 +346,13 @@ class LinesComponent
       fn()
 
   measureCharactersInLine: (lineId, tokenizedLine, lineNode) ->
-    charWidths = []
+    charWidths = [0]
+    total = 0
     for {value, scopes, hasPairedCharacter} in tokenizedLine.tokens
+      text = ""
       context = @canvasContextsByScopes[scopes] ? @context
       valueIndex = 0
+      left = total
       while valueIndex < value.length
         if hasPairedCharacter
           char = value.substr(valueIndex, 2)
@@ -359,8 +365,12 @@ class LinesComponent
 
         continue if char is '\0'
 
-        charWidth = context.measureText(char).width
-        charWidths.push(charWidth)
+        text += char
+        left = total + context.measureText(text).width
+
+        charWidths.push(left)
+
+      total = left
 
     if charWidths.length isnt 0
       @presenter.setCharWidthsForRow(tokenizedLine.screenRow, charWidths)

@@ -677,7 +677,7 @@ class DisplayBuffer extends Model
           valueIndex++
 
         return {top, left} if column is targetColumn
-        left += @getCharWidthForRow(targetRow, index++) unless char is '\0'
+        left = @getCharWidthForRow(targetRow, ++index) unless char is '\0'
         column += charLength
 
     {top, left}
@@ -709,9 +709,9 @@ class DisplayBuffer extends Model
           charLength = 1
           valueIndex++
 
-        charWidth = @getCharWidthForRow(row, index++)
-        break if targetLeft <= left + (charWidth / 2)
-        left += charWidth
+        nextLeft = @getCharWidthForRow(row, ++index)
+        break if targetLeft <= (left + nextLeft) / 2
+        left = nextLeft
         column += charLength
 
     new Point(row, column)
